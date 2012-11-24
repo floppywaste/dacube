@@ -19,10 +19,6 @@ static Pin COLUMNS[] = { { &PORTD, PD6 }, { &PORTB, PB0 }, { &PORTB, PB1 }, { &P
 		PB4 }, { &PORTB, PB5 }, { &PORTB, PB7 }, { &PORTB, PB6 } };
 static Pin LAYERS[] = { { &PORTD, PD3 }, { &PORTD, PD4 }, { &PORTD, PD5 } };
 
-//		uint8_t frameSize;
-uint8_t frame[27];
-static uint8_t frameIdx = 0;
-
 /*
  * the main loop
  */
@@ -36,10 +32,6 @@ void setUpLedOutputs();
 int main(void) {
 	setUpLedOutputs();
 
-	frame[0] = 0b01000000;
-	frame[1] = 0b01000001;
-	frame[2] = 0b01000101;
-
 	while (1) {
 		loop();
 	}
@@ -51,88 +43,64 @@ void setUpLedOutputs() {
 			| (1 << DDB7));
 }
 
-void onOff(int layer, int column) {
-	*LAYERS[layer].port |= (1 << LAYERS[layer].pin);
-	*COLUMNS[column].port |= (1 << COLUMNS[column].pin);
-	_delay_ms(5);
-	*LAYERS[layer].port &= ~(1 << LAYERS[layer].pin);
-	*COLUMNS[column].port &= ~(1 << COLUMNS[column].pin);
-}
-
-void switchOn(uint8_t cmd) {
-	Pin layer = LAYERS[Z(cmd)];
-	Pin column = COLUMNS[COL(cmd)];
-
-	*layer.port |= (1 << layer.pin);
-	*column.port |= (1 << column.pin);
-}
-
-void switchOff(uint8_t cmd) {
-	Pin layer = LAYERS[Z(cmd)];
-	Pin column = COLUMNS[COL(cmd)];
-
-	*layer.port &= ~(1 << layer.pin);
-	*column.port &= ~(1 << column.pin);
-}
-
-void repeat(uint8_t repeat) {
-	for (int i = 0; i < repeat * 10; i++) {
-		for (int j = 0; j < frameIdx; j++) {
-			switchOn(frame[j]);
-			_delay_ms(2);
-			switchOff(frame[j]);
+void switchColumns(uint32_t frm, uint8_t layer) {
+	for (uint8_t c = 0; c < 9; c++) {
+		if (frm & (((uint32_t)1) << (layer * 9 + c))) {
+			Pin column = COLUMNS[c];
+			*column.port |= (1 << column.pin);
+			_delay_us(100);
+			*column.port &= ~(1 << column.pin);
 		}
 	}
 }
 
-void command(uint8_t cmd) {
-	if (IS_FRM_STRT(cmd)) {
-		frameIdx = 0;
-//		frameSize = LEDS_IN_FRM(cmd);
-	} else if (IS_FRM_RPT(cmd)) {
-		repeat(FRM_RPT(cmd));
-	} else if (IS_ON(cmd)) {
-		if (frameIdx < 27) {
-			frame[frameIdx++] = cmd;
+void setFrame(uint32_t frm, uint16_t repeat) {
+	for (int i = 0; i < repeat; i++) {
+		for (uint8_t l = 0; l < 3; l++) {
+			Pin layer = LAYERS[l];
+			*layer.port |= (1 << layer.pin);
+			switchColumns(frm, l);
+			*layer.port &= ~(1 << layer.pin);
 		}
-//		switchOn(cmd);
-	} else {
-//		switchOff(cmd);
 	}
 }
 
-uint8_t rep(uint8_t count) {
-	return 0b11100000 | count;
-}
+#define L1 (uint32_t) 0x1FF
+#define L2 (uint32_t) 0x3FE00
+#define L3 (uint32_t) 0x7FC0000
 
-#define FRM 0x80
+#define C1 (uint32_t) 0x40201
+#define C2 C1 << 1
+#define C3 C1 << 2
+#define C4 C1 << 3
+#define C5 C1 << 4
+#define C6 C1 << 5
+#define C7 C1 << 6
+#define C8 C1 << 7
+#define C9 C1 << 8
+
+
+#define W1 C1 | C2 | C3
+#define W2 C4 | C5 | C6
+#define W3 C7 | C8 | C9
+
+#define W4 C1 | C4 | C7
+#define W5 C2 | C5 | C8
+#define W6 C3 | C6 | C9
+
+
 
 void loop() {
-//	if (IS_FRM_RPT(0b10000000))
-//		for (int j = 0; j < 3; j++) {
-//			switchOn(frame[j]);
-//			_delay_ms(2);
-//			switchOff(frame[j]);
-//		}
+	setFrame(L1, 100);
+	setFrame(L2, 100);
+	setFrame(L3, 100);
+	setFrame(L2, 100);
+	setFrame(W1, 100);
+	setFrame(W2, 100);
+	setFrame(W3, 100);
+	setFrame(W4, 100);
+	setFrame(W5, 100);
+	setFrame(W6, 100);
 
-//	command(0b10000000);
-//	command(0b01000000);
-//	command(0b01000001);
-//	command(0b01000101);
-//	command(0b11111111);
-
-	command(FRM);
-	command(0b01000000);
-	command(rep(31));
-//	_delay_ms(1000);
-//	switchOff(0b01000000);
-	_delay_ms(1000);
-
-	command(FRM);
-	command(0b01000001);
-	command(0b01000101);
-	command(rep(31));
-
-	_delay_ms(1000);
 }
 
