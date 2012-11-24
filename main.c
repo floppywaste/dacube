@@ -19,16 +19,9 @@ static Pin COLUMNS[] = { { &PORTD, PD6 }, { &PORTB, PB0 }, { &PORTB, PB1 }, { &P
 		PB4 }, { &PORTB, PB5 }, { &PORTB, PB7 }, { &PORTB, PB6 } };
 static Pin LAYERS[] = { { &PORTD, PD3 }, { &PORTD, PD4 }, { &PORTD, PD5 } };
 
-typedef struct {
-	uint8_t layer;
-	uint8_t column;
-} Led;
-
-typedef struct {
-	uint8_t count;
-	uint8_t cycles;
-	Led leds[];
-} Image;
+//		uint8_t frameSize;
+uint8_t frame[27];
+static uint8_t frameIdx = 0;
 
 /*
  * the main loop
@@ -38,18 +31,21 @@ void loop();
 /*
  * initializes inputs, outputs and all devices.
  */
-void setUp();
+void setUpLedOutputs();
 
 int main(void) {
-	setUp();
-//	SET(PORTD, PD4);
-//	SET(PORTB, PB6);
+	setUpLedOutputs();
+
+	frame[0] = 0b01000000;
+	frame[1] = 0b01000001;
+	frame[2] = 0b01000101;
+
 	while (1) {
 		loop();
 	}
 }
 
-void setUp() {
+void setUpLedOutputs() {
 	DDRD |= ((1 << DDD3) | (1 << DDD4) | (1 << DDD5) | (1 << DDD6));
 	DDRB |= ((1 << DDB0) | (1 << DDB1) | (1 << DDB2) | (1 << DDB3) | (1 << DDB4) | (1 << DDB5) | (1 << DDB6)
 			| (1 << DDB7));
@@ -58,51 +54,85 @@ void setUp() {
 void onOff(int layer, int column) {
 	*LAYERS[layer].port |= (1 << LAYERS[layer].pin);
 	*COLUMNS[column].port |= (1 << COLUMNS[column].pin);
-	_delay_ms(1);
+	_delay_ms(5);
 	*LAYERS[layer].port &= ~(1 << LAYERS[layer].pin);
 	*COLUMNS[column].port &= ~(1 << COLUMNS[column].pin);
 }
 
-void showLeds(Led *leds, int count, int cycles) {
-	for (int cycle = 0; cycle < cycles; cycle++) {
-		for (int i = 0; i < count; i++) {
-			onOff(leds[i].layer, leds[i].column);
+void switchOn(uint8_t cmd) {
+	Pin layer = LAYERS[Z(cmd)];
+	Pin column = COLUMNS[COL(cmd)];
+
+	*layer.port |= (1 << layer.pin);
+	*column.port |= (1 << column.pin);
+}
+
+void switchOff(uint8_t cmd) {
+	Pin layer = LAYERS[Z(cmd)];
+	Pin column = COLUMNS[COL(cmd)];
+
+	*layer.port &= ~(1 << layer.pin);
+	*column.port &= ~(1 << column.pin);
+}
+
+void repeat(uint8_t repeat) {
+	for (int i = 0; i < repeat * 10; i++) {
+		for (int j = 0; j < frameIdx; j++) {
+			switchOn(frame[j]);
+			_delay_ms(2);
+			switchOff(frame[j]);
 		}
 	}
 }
 
-void showLeds2(Image image) {
-	for (int cycle = 0; cycle < image.cycles; cycle++) {
-		for (int i = 0; i < image.count; i++) {
-			onOff(image.leds[i].layer, image.leds[i].column);
+void command(uint8_t cmd) {
+	if (IS_FRM_STRT(cmd)) {
+		frameIdx = 0;
+//		frameSize = LEDS_IN_FRM(cmd);
+	} else if (IS_FRM_RPT(cmd)) {
+		repeat(FRM_RPT(cmd));
+	} else if (IS_ON(cmd)) {
+		if (frameIdx < 27) {
+			frame[frameIdx++] = cmd;
 		}
+//		switchOn(cmd);
+	} else {
+//		switchOff(cmd);
 	}
 }
 
+uint8_t rep(uint8_t count) {
+	return 0b11100000 | count;
+}
 
-Led leds[2][9] = { { { 0, 0 }, { 0, 2 }, { 2, 0 }, { 2, 2 }, { 0, 6 }, { 0, 8 }, { 2, 6 }, { 2, 8 }, { 1, 4 } },
-				   { { 1, 0 }, { 1, 2 }, { 1, 0 }, { 1, 2 }, { 1, 6 }, { 1, 8 }, { 1, 6 }, { 2, 4 }, { 0, 4 } }};
-
-//Led leds[4][9] = { { { 0, 3 }, { 0, 4 }, { 0, 5 }, { 1, 3 }, { 1, 4 }, { 1, 5 }, { 2, 3 }, { 2, 4 }, { 2, 5 } },
-//				   { { 0, 2 }, { 0, 4 }, { 0, 6 }, { 1, 2 }, { 1, 4 }, { 1, 6 }, { 2, 2 }, { 2, 4 }, { 2, 6 } },
-//				   { { 0, 1 }, { 0, 4 }, { 0, 7 }, { 1, 1 }, { 1, 4 }, { 1, 7 }, { 2, 1 }, { 2, 4 }, { 2, 7 } },
-//				   { { 0, 0 }, { 0, 4 }, { 0, 8 }, { 1, 0 }, { 1, 4 }, { 1, 8 }, { 2, 0 }, { 2, 4 }, { 2, 8 } }};
-
-//Led leds[1][9] = {
-//				   { { 0, 0 }, { 0, 4 }, { 0, 8 }, { 1, 0 }, { 1, 4 }, { 1, 8 }, { 2, 0 }, { 2, 4 }, { 2, 8 } }};
+#define FRM 0x80
 
 void loop() {
+//	if (IS_FRM_RPT(0b10000000))
+//		for (int j = 0; j < 3; j++) {
+//			switchOn(frame[j]);
+//			_delay_ms(2);
+//			switchOff(frame[j]);
+//		}
 
-	for (int i = 0; i < 2; i++) {
-		showLeds(leds[i], 9, 80);
-		_delay_ms(5000);
-	}
+//	command(0b10000000);
+//	command(0b01000000);
+//	command(0b01000001);
+//	command(0b01000101);
+//	command(0b11111111);
 
-	//	Image image = { 3, 200,{ { 0, 1 }, { 1, 2 }, { 2, 1 } }};
-//	showLeds2(image);
-//	showLeds2({{ { 0, 2 }, { 1, 3 }, { 2, 2 } }, 3, 200});
-//	Led leds[3] = { { 0, 1 }, { 1, 2 }, { 2, 1 } };
-//	leds[2] = {{2,2}};
-//	showLeds(leds, 3, 255);
+	command(FRM);
+	command(0b01000000);
+	command(rep(31));
+//	_delay_ms(1000);
+//	switchOff(0b01000000);
+	_delay_ms(1000);
+
+	command(FRM);
+	command(0b01000001);
+	command(0b01000101);
+	command(rep(31));
+
+	_delay_ms(1000);
 }
 
