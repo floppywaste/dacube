@@ -6,7 +6,7 @@
 #include <util/delay.h>
 
 #include <stdio.h>
-#include <avr/eeprom.h>
+//#include <avr/eeprom.h>
 
 #include "macro.h"
 
@@ -45,7 +45,7 @@ void setUpLedOutputs() {
 
 void switchColumns(uint32_t frm, uint8_t layer) {
 	for (uint8_t c = 0; c < 9; c++) {
-		if (frm & (((uint32_t)1) << (layer * 9 + c))) {
+		if (frm & (((uint32_t) 1) << (layer * 9 + c))) {
 			Pin column = COLUMNS[c];
 			*column.port |= (1 << column.pin);
 			_delay_us(100);
@@ -79,28 +79,218 @@ void setFrame(uint32_t frm, uint16_t repeat) {
 #define C8 C1 << 7
 #define C9 C1 << 8
 
+#define W1 (C1 | C2 | C3)
+#define W2 (C4 | C5 | C6)
+#define W3 (C7 | C8 | C9)
 
-#define W1 C1 | C2 | C3
-#define W2 C4 | C5 | C6
-#define W3 C7 | C8 | C9
+#define W4 (C1 | C4 | C7)
+#define W5 (C2 | C5 | C8)
+#define W6 (C3 | C6 | C9)
 
-#define W4 C1 | C4 | C7
-#define W5 C2 | C5 | C8
-#define W6 C3 | C6 | C9
+#define VL1 (uint32_t) 7
+#define VL2 (VL1 << 3)
+#define VL3 (VL1 << 6)
 
+#define VL4 (VL1 << 9)
+#define VL5 (VL2 << 9)
+#define VL6 (VL3 << 9)
 
+#define VL7 (VL4 << 9)
+#define VL8 (VL5 << 9)
+#define VL9 (VL6 << 9)
 
-void loop() {
+#define VH1 (uint32_t) 73
+#define VH2 (VH1 << 1)
+#define VH3 (VH1 << 2)
+
+#define VH4 (VH1 << 9)
+#define VH5 (VH2 << 9)
+#define VH6 (VH3 << 9)
+
+#define VH7 (VH4 << 9)
+#define VH8 (VH5 << 9)
+#define VH9 (VH6 << 9)
+
+#define D1 (C1 | C5 | C9)
+#define D2 (C3 | C5 | C7)
+
+#define D3 (VL1 | VL5 | VL9)
+#define D4 (VL7 | VL5 | VL3)
+
+#define CTR 8192
+
+void circleCols() {
+	setFrame(C1, 100);
+	setFrame(C2, 100);
+	setFrame(C3, 100);
+	setFrame(C6, 100);
+	setFrame(C9, 100);
+	setFrame(C8, 100);
+	setFrame(C7, 100);
+	setFrame(C4, 100);
+}
+
+void circleColsWithCtr() {
+	setFrame(C1 | C5, 100);
+	setFrame(C2 | C5, 100);
+	setFrame(C3 | C5, 100);
+	setFrame(C6 | C5, 100);
+	setFrame(C9 | C5, 100);
+	setFrame(C8 | C5, 100);
+	setFrame(C7 | C5, 100);
+	setFrame(C4 | C5, 100);
+}
+
+void circleColsWithHlx() {
+	setFrame(C1 | C5, 100);
+	setFrame(C2 | C5, 100);
+	setFrame(C3 | C5, 100);
+	setFrame(C6 | C5, 100);
+	setFrame(C9 | C5, 100);
+	setFrame(C8  | C5, 100);
+	setFrame(C7 | C5, 100);
+	setFrame(C4 | C5, 100);
+}
+
+void rotate1() {
+	setFrame(D3 & ~VL5, 200);
+	setFrame(W2 & ~VL5, 200);
+	setFrame(D4 & ~VL5, 200);
+	setFrame(L2 & ~VL5, 200);
+}
+
+void rotate2() {
+	setFrame(D3 & ~CTR, 100);
+	setFrame(W2 & ~CTR, 100);
+	setFrame(D4 & ~CTR, 100);
+	setFrame(L2 & ~CTR, 100);
+}
+
+void rotateHi() {
+	//
+	setFrame(W2 & ~L1, 100);
+	setFrame(D1 & ~L1, 100);
+	setFrame(W5 & ~L1, 100);
+	setFrame(D2 & ~L1, 100);
+}
+
+void rotateLo() {
+	setFrame(W2 & ~L3, 100);
+	setFrame(D1 & ~L3, 100);
+	setFrame(W5 & ~L3, 100);
+	setFrame(D2 & ~L3, 100);
+}
+
+void layerLift() {
+	//
 	setFrame(L1, 100);
 	setFrame(L2, 100);
 	setFrame(L3, 100);
 	setFrame(L2, 100);
-	setFrame(W1, 100);
-	setFrame(W2, 100);
-	setFrame(W3, 100);
-	setFrame(W4, 100);
-	setFrame(W5, 100);
-	setFrame(W6, 100);
+}
 
+void rotatePlate() {
+	setFrame(W2, 100);
+	setFrame(D1, 100);
+	setFrame(W5, 100);
+	setFrame(D2, 100);
+}
+
+void runl1v() {
+	setFrame(VL1, 200);
+	setFrame(VL2, 200);
+	setFrame(VL3, 200);
+}
+
+void runl2v() {
+	setFrame(VL4, 200);
+	setFrame(VL5, 200);
+	setFrame(VL6, 200);
+}
+
+void runl3v() {
+	setFrame(VL7, 200);
+	setFrame(VL8, 200);
+	setFrame(VL9, 200);
+}
+
+void runl1h() {
+	//	rotate1();
+	//	rotate2();
+	//	rotateHi();
+	//	rotateLo();
+	//	layerLift();
+	//	rotatePlate();
+	//	runl1v();
+	//	runl2v();
+	//	runl3v();
+	//
+	setFrame(VH1, 200);
+	setFrame(VH2, 200);
+	setFrame(VH3, 200);
+}
+
+void runl2h() {
+	setFrame(VH4, 200);
+	setFrame(VH5, 200);
+	setFrame(VH6, 200);
+}
+
+void runl3h() {
+	setFrame(VH7, 200);
+	setFrame(VH8, 200);
+	setFrame(VH9, 200);
+}
+
+void loop() {
+
+//	rotate1();
+//	rotate2();
+	rotateHi();
+	rotateLo();
+	rotateHi();
+	rotateLo();
+	rotateHi();
+	rotateLo();
+	rotateHi();
+	rotatePlate();
+	rotatePlate();
+	circleColsWithCtr();
+	circleColsWithCtr();
+	circleCols();
+	circleCols();
+	setFrame(CTR, 400);
+	setFrame(L2, 400);
+	setFrame(CTR, 400);
+	setFrame(L2, 400);
+	setFrame(L3 | L1, 250);
+	setFrame(L2, 300);
+	setFrame(L3 | L1, 250);
+	setFrame(L2, 300);
+	setFrame(L3 | L1, 250);
+	setFrame(L2, 300);
+	layerLift();
+	layerLift();
+	rotate2();
+	rotate2();
+	rotate2();
+	layerLift();
+
+
+//	rotatePlate();
+
+//	runl1v();
+//	runl2v();
+//	runl3v();
+//
+//	runl1h();
+//	runl2h();
+//	runl3h();
+//
+//	setFrame(W5, 100);
+//	setFrame(W6, 100);
+//
+//	circleCols();
+//	circleColsWithCtr();
 }
 
